@@ -1,0 +1,139 @@
+<html>
+	<head>
+		<title>Hue Energy Consumption</title>
+		<link rel="stylesheet" href="dist/css/bootstrap.min.css">
+		<link rel="stylesheet" href="dist/css/style.css">
+	</head>
+	<body id="body">
+		<nav class="navbar navbar-default">
+			<div class="container-fluid">
+				<div class="navbar-header">
+					<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false">
+						<span class="sr-only">Toggle navigation</span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+					</button>
+					<a class="navbar-brand" href="./">Hue Energy Consumption</a>
+				</div>
+				<div class="collapse navbar-collapse" id="navbar">
+					<ul class="nav navbar-nav">
+						<li><a href="#" data-link="">Dashboard</a></li>
+						<li><a href="#" data-link="rooms">Rooms</a></li>
+					</ul>
+				</div>
+			</div>
+		</nav>
+		<div id="container" class="container">
+			<div id="livestatus">Loading...</div>
+			<div id="rooms"></div>
+			<div id="room"></div>
+			<div id="cost"></div>
+		</div>
+
+		<script id="template-lights" type="text/template">
+			<h2>Live status</h2>
+			<div class="row">
+				<% let usage = 0 %>
+			<% _.each(lights, function(light, index){ %>
+				<%
+				let hsl = "hsl(" + Math.round(light.state.hue/182) + ", " + Math.round(light.state.sat / 2.54) + "%, 50%)";
+				usage = (light.state.on ? (Math.round((light.state.bri / 254) * 6.5)) + usage : 0.5 + usage);
+				%>
+			<div class="col-sm-3 col-xs-4">
+				<div class="hue <%= ((light.state.on && light.state.reachable) ? 'enabled' : (light.state.reachable) ? 'disabled' : 'connection') %>">
+					<div title="Type: <%= light.modelid %>
+						Hue: <%= light.state.hue %>
+						Saturation: <%= light.state.sat %>
+						Brightness: <%= light.state.bri %>
+						Type: <%= light.modelid %>
+						<%= hsl %>" class="colorbox" style="background-color: <%= hsl %>">
+							<div class="brightness" style="opacity: <%= ((light.state.reachable && light.state.on && light.state.bri < 230) ? '0.4' : '0') %>">
+								<div class="bar" style="height: <%= 100 - (light.state.bri / 2.54) %>%"></div>
+							</div>
+						</div>
+						<div class="info">
+						<h3 title="ID: <%= light.uniqueid %>"><%= light.name %></h3>
+						<p>
+							<br><i class="glyphicon glyphicon-<%= (light.state.reachable ? 'ok" style="color:darkgreen;' : 'remove" style="color:red;') %>"></i> <%= (light.state.reachable ? 'Reached' : 'Connection lost') %>
+							<br><i class="glyphicon glyphicon-<%= (light.state.on ? 'ok" style="color:darkgreen;' : 'remove" style="color:red;') %>"></i> <%= (light.state.on ? 'Turned on' : 'Turned off') %>
+							<br><i class="glyphicon glyphicon-certificate" style="color:gray;"></i> Brightness: <%= (Math.round(light.state.bri / 2.54) == 0 ? '1' : Math.round(light.state.bri / 2.54)) %>%
+						</p>
+					</div>
+				</div>
+			</div>
+			<% }); %>
+			</div>
+			<hr>
+			<strong>Consuming <%= usage %> watts</strong>
+		</script>
+		<script id="template-activity" type="text/template">
+			<h2>Activity<small class="pull-right">Up to 10 minutes delay. <a href="#refresh"><i class="glyphicon glyphicon-refresh"></i> Refresh now</a></small></h2>
+			<div class="row">
+				<div class="col-sm-9" id="charts">
+					<div id="muhChart2" class="hidden" width="847" height="400"></div>
+					<div id="muhChart1" width="847" height="400"></div>
+				</div>
+				<div class="col-sm-3">
+					<label for="check-graph">Type</label>
+					<input id="check-graph" data-style="custom" type="checkbox" data-width="262" checked data-toggle="toggle" data-on="Consumption" data-off="Cost" data-onstyle="warning" data-offstyle="danger">
+					<hr>
+					<label for="check-other">Other light types</label>
+					<input id="check-other" data-style="custom" type="checkbox" data-width="262" checked data-toggle="toggle" data-on="Shown" data-off="Hidden" data-onstyle="success" data-offstyle="danger">
+					<hr>
+					<label for="check-collection">Lights</label>
+					<input id="check-collection" data-style="custom" type="checkbox" data-width="262" checked data-toggle="toggle" data-off="Total" data-on="Individual" data-offstyle="primary" data-onstyle="info">
+				</div>
+			</div>
+		</script>
+		<script id="template-error" type="text/template">
+			<div class="alert alert-danger">
+				<span class="error"><%= message %></span>
+			</div>
+		</script>
+		<script id="template-rooms" type="text/template">
+			<h2>Rooms</h2>
+			<div id="roomslist" class="row">
+				<% _.each(rooms, function(room, index){ %>
+					<div class="col-sm-3 col-xs-4">
+						<a href="#" data-room="<%= index %>" class="btn btn-block btn-lg btn-info">
+							<%= room.name %>: <%= room.lights.length %> Lights
+						</a>
+					</div>
+				<% }); %>
+			</div>
+		</script>
+		<script id="template-room" type="text/template">
+			<%
+			let hsl = "hsl(" + Math.round(room.action.hue/182) + ", " + Math.round(room.action.sat / 2.54) + "%, 50%)";
+			%>
+			<h2>Room status</h2>
+			<div class="row">
+				<div class="col-sm-3 col-xs-4">
+					<div class="hue <%= (room.state.any_on ? 'enabled' : 'disabled') %>">
+					<div title="Hue: <%= room.action.hue %>
+						Saturation: <%= room.action.sat %>
+						Brightness: <%= room.action.bri %>
+						<%= hsl %>" class="colorbox" style="background-color: <%= hsl %>">
+							<div class="brightness" style="opacity: <%= ((room.state.any_on && room.action.bri < 230) ? '0.4' : '0') %>">
+								<div class="bar" style="height: <%= 100 - (room.action.bri / 2.54) %>%"></div>
+							</div>
+						</div>
+						<div class="info">
+						<h3><%= room.name %></h3>
+						<p>
+							<br><i class="glyphicon glyphicon-ok" style="color:darkgreen;"></i> Reached
+							<br><i class="glyphicon glyphicon-<%= (room.state.any_on ? 'ok" style="color:darkgreen;' : 'remove" style="color:red;') %>"></i> <%= (room.state.any_on ? 'Turned on' : 'Turned off') %>
+							<br><i class="glyphicon glyphicon-certificate" style="color:gray;"></i> Brightness: <%= (Math.round(room.action.bri / 2.54) == 0 ? '1' : Math.round(room.action.bri / 2.54)) %>%
+						</p>
+					</div>
+				</div>
+				</div>
+			</div>
+		</script>
+		<script id="template-calculate" type="text/template">
+			<strong>Current energy price: $<%= cost.outputs.residential %>/kWH</strong>
+		</script>
+		<script type="text/javascript" src="dist/js/bundle.js"></script>
+	</body>
+</html>
