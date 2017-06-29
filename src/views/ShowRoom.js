@@ -22,7 +22,7 @@ const ShowRoom = View.extend({
 	 */
 	loadRoom: function (data)
 	{
-		let api_url = this.model.url + '/' + data.id;
+		let api_url = this.model.url + '/' + data.id + ".json";
 
 		this.model.fetch({
 			url: api_url,

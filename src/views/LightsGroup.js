@@ -24,7 +24,7 @@ const LightsGroup = View.extend({
 	{
 		let url;
 
-		url = (data.id == -1) ? url = this.collection.url : url = this.collection.url + "/" + data.id;
+		url = (data.id == -1) ? url = this.collection.url + ".json" : url = this.collection.url + "/" + data.id + ".json";
 		data = {};
 
 		this.collection.fetch({
